@@ -19,14 +19,19 @@
             fprintf(stderr,"ERROR, no port provided\n");
             exit(1);
         }
+        
+        // open socket
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd < 0) 
            error("ERROR opening socket");
+
         bzero((char *) &serv_addr, sizeof(serv_addr));
         portno = atoi(argv[1]);
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_port = htons(portno);
         serv_addr.sin_addr.s_addr = INADDR_ANY;
+        
+        // bind
         if (bind(sockfd, (struct sockaddr *) &serv_addr,
                  sizeof(serv_addr)) < 0) 
                  error("ERROR on binding");
