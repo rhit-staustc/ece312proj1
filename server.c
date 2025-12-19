@@ -14,6 +14,10 @@
 // fork
 #include <unistd.h>
 
+const int MSG_LEN = 256;
+const int USER_LEN = 20;
+const int FORMAT_CHARS_LEN = 3; // len of <> and ' '
+const int MAX_LEN = MSG_LEN + USER_LEN + FORMAT_CHARS_LEN;
 
 void dostuff(int); /* function prototype */
 void error(char *msg)
@@ -55,19 +59,19 @@ int main(int argc, char *argv[])
     // 1. extracts first connection req. on the queue of pending connections for the listening socket, sockfd,
     // 2. creates a new connected socket, and
     // 3. returns a new file descripter referring to that socket
-    newsockfd = accept(sockfd, 
-        (struct sockaddr *) &cli_addr, &clilen);
-    if (newsockfd < 0) 
-        error("ERROR on accept");
-    pid = fork();
-    if (pid < 0)
-        error("ERROR on fork");
-    if (pid == 0)  {
-        close(sockfd);
-        dostuff(newsockfd);
-        exit(0);
-    }
-    else close(newsockfd);
+        newsockfd = accept(sockfd, 
+            (struct sockaddr *) &cli_addr, &clilen);
+        if (newsockfd < 0) 
+            error("ERROR on accept");
+        pid = fork();
+        if (pid < 0)
+            error("ERROR on fork");
+        if (pid == 0)  {
+            close(sockfd);
+            dostuff(newsockfd);
+            exit(0);
+        }
+        else close(newsockfd); // TODO keep connection open
     } /* end of while */
     return 0; /* we never get here */
 }
@@ -79,18 +83,18 @@ int main(int argc, char *argv[])
  *****************************************/
 void dostuff (int sock)
 {
-   int n;
-   char buffer[256];
-      
-   // read from socket
-   memset(buffer, 0, 256);
-   n = read(sock,buffer,255);
-   if (n < 0) error("ERROR reading from socket");
+    int n;
+    char buffer[MAX_LEN];
+        
+    // read message from socket
+    memset(buffer, 0, MAX_LEN);
+    n = read(sock, buffer, MAX_LEN-1);
+    if (n < 0) error("ERROR reading from socket");
 
-   // prints the message on the serverside
-   printf("Here is the message: %s\n",buffer);
-   
-   // write response to client
-   n = write(sock,"I got your message",18);
-   if (n < 0) error("ERROR writing to socket");
+    // prints the message on the serverside
+    printf("%s\n", buffer);
+
+    // write response to client
+    n = write(sock,"I got your message",18);
+    if (n < 0) error("ERROR writing to socket");
 }
