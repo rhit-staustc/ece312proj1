@@ -30,10 +30,10 @@ int main(int argc, char *argv[])
     int sockfd, newsockfd, portno, clilen, pid;
     struct sockaddr_in srv_addr, cli_addr;
 
-    //if (argc < 2) {
-    //    fprintf(stderr,"ERROR, no port provided\n");
-    //    exit(1);
-    //}
+    if (argc < 2) {
+       fprintf(stderr,"ERROR, no port provided\n");
+       exit(1);
+    }
 
     // open socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -70,8 +70,8 @@ int main(int argc, char *argv[])
             dostuff(newsockfd);
             exit(0);
         }
-        else close(newsockfd); // TODO keep connection open
-    } /* end of while */
+        else close(newsockfd); 
+    } 
     return 0; /* we never get here */
 }
 
