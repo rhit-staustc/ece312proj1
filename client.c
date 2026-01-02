@@ -7,6 +7,7 @@
 #include <netdb.h> 
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <stdbool.h> // booleans
 
 
 const int MSG_LEN = 256;
@@ -58,34 +59,38 @@ int main(int argc, char *argv[])
     if (connect(sockfd,(struct sockaddr *)&srv_addr,sizeof(srv_addr)) < 0) 
         error("ERROR connecting");
     
-    // user inputs message
-    printf("<%s> ", username);
-    char buffer[256];
-    memset(buffer, 0, MSG_LEN);
-    fgets(buffer, MSG_LEN-1, stdin);
-    
-    // prefix- '<[username]> '
-    char prefix[PREFIX_LEN];
-    snprintf(prefix, PREFIX_LEN-1, "<%s>",username);
+        
+    while (true) {
+        // user inputs message
+        printf("<%s> ", username);
+        // TODO: is this an issue if we do not clear the buffer?
+        char msg[256];
+        memset(msg, 0, MSG_LEN);
+        fgets(msg, MSG_LEN-1, stdin); // take input 
+        
+        // prefix- '<[username]> '
+        // TODO: this is some shitty code, maybe it becomes own fn.?
+        char prefix[PREFIX_LEN];
+        snprintf(prefix, PREFIX_LEN-1, "<%s> ",username);
 
-    // write to socket
-    // write username to socket
-    // TODO include <> around username
-    n = write(sockfd, prefix, PREFIX_LEN);
-    if (n < 0) 
-        error("ERROR writing to socket");
-    // write message to socket
-    n = write(sockfd,buffer,strlen(buffer));
-    if (n < 0) 
-        error("ERROR writing to socket");
-    
-    // read response
-    bzero(buffer,256); // clear buffer
-    n = read(sockfd,buffer,255);
-    if (n < 0) 
-        error("ERROR reading from socket");
-    printf("%s\n",buffer); // print response
-    
+        //// write to socket
+        // write username to socket
+        n = write(sockfd, prefix, PREFIX_LEN);
+        if (n < 0) 
+            error("ERROR writing to socket");
+        // write message to socket
+        n = write(sockfd,msg,strlen(msg));
+        if (n < 0) 
+            error("ERROR writing to socket");
+        
+        // read response
+        bzero(msg,256); // clear buffer
+        n = read(sockfd,msg,255);
+        if (n < 0) 
+            error("ERROR reading from socket");
+        printf("%s\n",msg); // print response
+    }
+
     return 0;
 }
 

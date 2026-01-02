@@ -10,9 +10,8 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
-
-// fork
-#include <unistd.h>
+#include <stdbool.h> // booleans
+#include <unistd.h> // fork
 
 const int MSG_LEN = 256;
 const int USER_LEN = 20;
@@ -31,10 +30,10 @@ int main(int argc, char *argv[])
     int sockfd, newsockfd, portno, clilen, pid;
     struct sockaddr_in srv_addr, cli_addr;
 
-    if (argc < 2) {
-        fprintf(stderr,"ERROR, no port provided\n");
-        exit(1);
-    }
+    //if (argc < 2) {
+    //    fprintf(stderr,"ERROR, no port provided\n");
+    //    exit(1);
+    //}
 
     // open socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -83,18 +82,21 @@ int main(int argc, char *argv[])
  *****************************************/
 void dostuff (int sock)
 {
-    int n;
-    char buffer[MAX_LEN];
-        
-    // read message from socket
-    memset(buffer, 0, MAX_LEN);
-    n = read(sock, buffer, MAX_LEN-1);
-    if (n < 0) error("ERROR reading from socket");
+    while (true) {
+        int n;
+        char buffer[MAX_LEN];
+            
+        // read message from socket
+        memset(buffer, 0, MAX_LEN);
+        n = read(sock, buffer, MAX_LEN-1);
+        if (n < 0) error("ERROR reading from socket");
+    
+        // prints the message on the serverside
+        printf("%s\n", buffer);
+    
+        // write response to client
+        n = write(sock,"I got your message",18);
+        if (n < 0) error("ERROR writing to socket");
 
-    // prints the message on the serverside
-    printf("%s\n", buffer);
-
-    // write response to client
-    n = write(sock,"I got your message",18);
-    if (n < 0) error("ERROR writing to socket");
+    }
 }
