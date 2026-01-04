@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <stdbool.h> // booleans
 #include <unistd.h> // fork
+#include <arpa/inet.h>
 
 #define PORT 56789
 #define MAXMSG 512
@@ -37,12 +38,12 @@ int main(void)
     if(listener < 0) error("socket");
 
     int yes = 1;
-    setsockopt(listener, SOL_SOCKET, SOREUSEADDR, &yes, sizeof yes);
+    setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
 
     memset(&srv_addr, 0, sizeof srv_addr);
     srv_addr.sin_family = AF_INET; 
     srv_addr.sin_addr.s_addr = INADDR_ANY;
-    srv_addr.sin_port = hton(PORT);
+    srv_addr.sin_port = htons(PORT);
 
     if (bind(listener, (struct sockaddr*)&srv_addr, sizeof srv_addr) < 0)
         error("bind");
@@ -57,6 +58,7 @@ int main(void)
     fdmax = listener;
 
     printf("Chat server listening on port %d\n", PORT);
+
 
     while (1) {
         read_fds = master;
@@ -80,7 +82,8 @@ int main(void)
                 FD_SET(newfd, &master);
                 if (newfd > fdmax) fdmax = newfd;
 
-                printf("New connection: fd %d\n", newfd);
+                char *ip = inet_ntoa(cli_addr.sin_addr);
+                printf("New connection: IP %s\n", ip);
             }
             // client message
             else {
