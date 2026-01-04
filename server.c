@@ -13,90 +13,94 @@
 #include <stdbool.h> // booleans
 #include <unistd.h> // fork
 
-const int MSG_LEN = 256;
-const int USER_LEN = 20;
-const int FORMAT_CHARS_LEN = 3; // len of <> and ' '
-const int MAX_LEN = MSG_LEN + USER_LEN + FORMAT_CHARS_LEN;
+#define PORT 56789
+#define MAXMSG 512
 
-void dostuff(int); /* function prototype */
-void error(char *msg)
+void error(const char *msg)
 {
     perror(msg);
     exit(1);
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
-    int sockfd, newsockfd, portno, clilen, pid;
+    int listener, newfd;
     struct sockaddr_in srv_addr, cli_addr;
+    socklen_t addrlen;
 
-    if (argc < 2) {
-       fprintf(stderr,"ERROR, no port provided\n");
-       exit(1);
-    }
+    fd_set master, read_fds;
+    int fdmax;
+    char buf[MAXMSG];
 
-    // open socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) 
-    error("ERROR opening socket");
-    
-    memset(&srv_addr, 0, sizeof(srv_addr));
-    portno = atoi(argv[1]);
-    srv_addr.sin_family = AF_INET; // specified IPv4
-    srv_addr.sin_addr.s_addr = INADDR_ANY; // tells socket to bind to any available network interface on the machine- this is where the ip address comes from
-    srv_addr.sin_port = htons(portno); // converts port number
-    
-    if (bind(sockfd, (struct sockaddr *) &srv_addr,
-            sizeof(srv_addr)) < 0) 
-            error("ERROR on binding");
-    listen(sockfd,5);
-    clilen = sizeof(cli_addr);
-    
-    
+    //create listener
+    listener = socket(AF_INET, SOCK_STREAM, 0);
+    if(listener < 0) error("socket");
+
+    int yes = 1;
+    setsockopt(listener, SOL_SOCKET, SOREUSEADDR, &yes, sizeof yes);
+
+    memset(&srv_addr, 0, sizeof srv_addr);
+    srv_addr.sin_family = AF_INET; 
+    srv_addr.sin_addr.s_addr = INADDR_ANY;
+    srv_addr.sin_port = hton(PORT);
+
+    if (bind(listener, (struct sockaddr*)&srv_addr, sizeof srv_addr) < 0)
+        error("bind");
+
+    if (listen(listener, 10) < 0)
+        error("listen");
+
+    FD_ZERO(&master);
+    FD_ZERO(&read_fds);
+
+    FD_SET(listener, &master);
+    fdmax = listener;
+
+    printf("Chat server listening on port %d\n", PORT);
+
     while (1) {
-    // accept- 
-    // 1. extracts first connection req. on the queue of pending connections for the listening socket, sockfd,
-    // 2. creates a new connected socket, and
-    // 3. returns a new file descripter referring to that socket
-        newsockfd = accept(sockfd, 
-            (struct sockaddr *) &cli_addr, &clilen);
-        if (newsockfd < 0) 
-            error("ERROR on accept");
-        pid = fork();
-        if (pid < 0)
-            error("ERROR on fork");
-        if (pid == 0)  {
-            close(sockfd);
-            dostuff(newsockfd);
-            exit(0);
+        read_fds = master;
+        if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) < 0)
+            error("select");
+
+        for (int i = 0; i <= fdmax; i++) {
+            if (!FD_ISSET(i, &read_fds)) continue;
+
+            // new connection
+            if (i == listener) {
+                addrlen = sizeof cli_addr;
+                newfd = accept(listener,
+                    (struct sockaddr*)&cli_addr, &addrlen);
+
+                if (newfd < 0) {
+                    perror("accept");
+                    continue;
+                }
+
+                FD_SET(newfd, &master);
+                if (newfd > fdmax) fdmax = newfd;
+
+                printf("New connection: fd %d\n", newfd);
+            }
+            // client message
+            else {
+                int n = recv(i, buf, sizeof buf, 0);
+
+                if (n <= 0) {
+                    close(i);
+                    FD_CLR(i, &master);
+                    printf("Client %d disconnected\n", i);
+                } else {
+                    // broadcast
+                    for (int j = 0; j <= fdmax; j++) {
+                        if (FD_ISSET(j, &master)) {
+                            if (j != listener && j != i) {
+                                send(j, buf, n, 0);
+                            }
+                        }
+                    }
+                }
+            }
         }
-        else close(newsockfd); 
-    } 
-    return 0; /* we never get here */
-}
-
-/******** DOSTUFF() *********************
- There is a separate instance of this function 
- for each connection.  It handles all communication
- once a connnection has been established.
- *****************************************/
-void dostuff (int sock)
-{
-    while (true) {
-        int n;
-        char buffer[MAX_LEN];
-            
-        // read message from socket
-        memset(buffer, 0, MAX_LEN);
-        n = read(sock, buffer, MAX_LEN-1);
-        if (n < 0) error("ERROR reading from socket");
-    
-        // prints the message on the serverside
-        printf("%s\n", buffer);
-    
-        // write response to client
-        n = write(sock,"I got your message",18);
-        if (n < 0) error("ERROR writing to socket");
-
     }
 }

@@ -21,6 +21,12 @@ void error(char *msg)
     exit(0);
 }
 
+void print_prompt(const char *username) {
+    printf("<%s> ", username);
+    fflush(stdout);
+}
+
+
 // takes ip and portnumber as arguments
 int main(int argc, char *argv[])
 {
@@ -59,38 +65,49 @@ int main(int argc, char *argv[])
     if (connect(sockfd,(struct sockaddr *)&srv_addr,sizeof(srv_addr)) < 0) 
         error("ERROR connecting");
     
-        
-    while (true) {
-        // user inputs message
-        printf("<%s> ", username);
-        // TODO: is this an issue if we do not clear the buffer?
-        char msg[256];
-        memset(msg, 0, MSG_LEN);
-        fgets(msg, MSG_LEN-1, stdin); // take input 
-        
-        // prefix- '<[username]> '
-        // TODO: this is some shitty code, maybe it becomes own fn.?
-        char prefix[PREFIX_LEN];
-        snprintf(prefix, PREFIX_LEN-1, "<%s> ",username);
+    fd_set read_fds;
+    print_prompt(username);
+    char buf[512];
 
-        //// write to socket
-        // write username to socket
-        n = write(sockfd, prefix, PREFIX_LEN);
-        if (n < 0) 
-            error("ERROR writing to socket");
-        // write message to socket
-        n = write(sockfd,msg,strlen(msg));
-        if (n < 0) 
-            error("ERROR writing to socket");
-        
-        // read response
-        bzero(msg,256); // clear buffer
-        n = read(sockfd,msg,255);
-        if (n < 0) 
-            error("ERROR reading from socket");
-        printf("%s\n",msg); // print response
-    }
+    while (1) {
+        FD_ZERO(&read_fds);
+        FD_SET(STDIN_FILENO, &read_fds);
+        FD_SET(sockfd, &read_fds);
 
-    return 0;
+        int maxfd = sockfd > STDIN_FILENO ? sockfd : STDIN_FILENO;
+
+        if (select(maxfd + 1, &read_fds, NULL, NULL, NULL) < 0)
+            error("select");
+
+        // user typed something
+        if (FD_ISSET(STDIN_FILENO, &read_fds)) {
+            char msg[256];
+            fgets(msg, sizeof msg, stdin);
+
+            // quit command
+            if (strncmp(msg, "/quit", 5) == 0) {
+                printf("Disconnecting...\n");
+                close(sockfd);
+                exit(0);
+            }
+
+            char out[512];
+            snprintf(out, sizeof out, "<%s> %s", username, msg);
+            write(sockfd, out, strlen(out));
+            print_prompt(username);
+        }
+
+        // server sent something
+        if (FD_ISSET(sockfd, &read_fds)) {
+            int n = recv(sockfd, buf, sizeof buf - 1, 0);
+            if (n <= 0) {
+                printf("Server closed connection\n");
+                break;
+            }
+            buf[n] = '\0';
+            printf("\n%s", buf);
+            print_prompt(username);
+        }
+    } 
 }
 
