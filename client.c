@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <stdbool.h> // booleans
 
+#define QUIT_CMD "/quit"
+#define QUIT_MSG "__QUIT__"
 
 const int MSG_LEN = 256;
 const int USER_LEN = 20;
@@ -68,7 +70,7 @@ int main(int argc, char *argv[])
     write(sockfd, username, strlen(username) + 1);
 
     printf("Waiting for connection . . .\n");
-    
+
     fd_set read_fds;
     // print_prompt(username);
     char buf[512];
@@ -88,11 +90,11 @@ int main(int argc, char *argv[])
             char msg[256];
             fgets(msg, sizeof msg, stdin);
 
-            // quit command
-            if (strncmp(msg, "/quit", 5) == 0) {
-                printf("Disconnecting...\n");
-                close(sockfd);
-                exit(0);
+            //quit message
+            if (strncmp(msg, QUIT_CMD, 4) == 0) {
+                write(sockfd, QUIT_CMD, strlen(QUIT_CMD));
+                // DO NOT exit yet
+                continue;
             }
 
             char out[512];
@@ -108,9 +110,14 @@ int main(int argc, char *argv[])
                 printf("Server closed connection\n");
                 break;
             }
+            if (strcmp(buf, QUIT_MSG) == 0) {
+                printf("\nExiting chat...\n");
+                close(sockfd);
+                exit(0);
+            }
             buf[n] = '\0';
             printf("\n%s", buf);
-                print_prompt(username);
+            print_prompt(username);
         }
     } 
 }

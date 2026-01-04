@@ -18,6 +18,8 @@
 #define MAXMSG 512
 #define USER_LEN 20
 #define MAXCLIENTS 2
+#define QUIT_CMD "/quit"
+#define QUIT_MSG "__QUIT__"
 
 int client_fds[MAXCLIENTS];
 char client_names[MAXCLIENTS][USER_LEN];
@@ -128,6 +130,22 @@ int main(void)
             // client message
             else {
                 int n = recv(i, buf, sizeof buf, 0);
+                buf[n] = '\0';
+
+                if (strncmp(buf, QUIT_CMD, 4) == 0) {
+                    printf("Connection terminated\n");
+
+                    // notify both clients
+                    for (int k = 0; k < client_count; k++) {
+                        send(client_fds[k], QUIT_MSG, strlen(QUIT_MSG), 0);
+                        close(client_fds[k]);
+                        FD_CLR(client_fds[k], &master);
+                    }
+
+                    client_count = 0;
+                    continue;
+                }
+
 
                 if (n <= 0) {
                     close(i);
