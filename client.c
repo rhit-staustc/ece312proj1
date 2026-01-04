@@ -64,11 +64,15 @@ int main(int argc, char *argv[])
     // fprintf(stderr, "About to connect to %s:%s\n", argv[1], argv[2]);
     if (connect(sockfd,(struct sockaddr *)&srv_addr,sizeof(srv_addr)) < 0) 
         error("ERROR connecting");
+    // send username to server immediately
+    write(sockfd, username, strlen(username) + 1);
+
+    printf("Waiting for connection . . .\n");
     
     fd_set read_fds;
-    print_prompt(username);
+    // print_prompt(username);
     char buf[512];
-
+    int ser_msg_count = 0;
     while (1) {
         FD_ZERO(&read_fds);
         FD_SET(STDIN_FILENO, &read_fds);
@@ -106,7 +110,7 @@ int main(int argc, char *argv[])
             }
             buf[n] = '\0';
             printf("\n%s", buf);
-            print_prompt(username);
+                print_prompt(username);
         }
     } 
 }

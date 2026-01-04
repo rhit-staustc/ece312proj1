@@ -16,6 +16,13 @@
 
 #define PORT 56789
 #define MAXMSG 512
+#define USER_LEN 20
+#define MAXCLIENTS 2
+
+int client_fds[MAXCLIENTS];
+char client_names[MAXCLIENTS][USER_LEN];
+char client_ips[MAXCLIENTS][INET_ADDRSTRLEN];
+int client_count = 0;
 
 void error(const char *msg)
 {
@@ -82,6 +89,39 @@ int main(void)
                 FD_SET(newfd, &master);
                 if (newfd > fdmax) fdmax = newfd;
 
+                // get client IP
+                inet_ntop(AF_INET, &cli_addr.sin_addr,
+                        client_ips[client_count],
+                        INET_ADDRSTRLEN);
+
+                // read username
+                recv(newfd,
+                    client_names[client_count],
+                    USER_LEN,
+                    0);
+
+                client_fds[client_count] = newfd;
+
+                printf("Client connected from %s (%s)\n",
+                    client_ips[client_count],
+                    client_names[client_count]);
+
+                client_count++;
+                if (client_count == 2) {
+                    char msg[256];
+
+                    // notify client 0
+                    snprintf(msg, sizeof msg,
+                        "Connection established with %s (%s)\n",
+                        client_ips[1], client_names[1]);
+                    send(client_fds[0], msg, strlen(msg), 0);
+
+                    // notify client 1
+                    snprintf(msg, sizeof msg,
+                        "Connection established with %s (%s)\n",
+                        client_ips[0], client_names[0]);
+                    send(client_fds[1], msg, strlen(msg), 0);
+                }
                 char *ip = inet_ntoa(cli_addr.sin_addr);
                 printf("New connection: IP %s\n", ip);
             }
