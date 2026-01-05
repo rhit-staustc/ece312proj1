@@ -1,8 +1,7 @@
-/* A simple server in the internet domain using TCP
-   The port number is passed as an argument 
-   This version runs forever, forking off a separate 
-   process for each connection
-   gcc server2.c 
+/* TCP chat server using select(). 
+   The server accepts two clients, recieves messages from 
+   either client and broadcasts them to eachother. A quit 
+   command allows either client to terminate the chat. 
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +13,7 @@
 #include <unistd.h> // fork
 #include <arpa/inet.h>
 
+// Define constans and messages 
 #define PORT 56789
 #define MAXMSG 512
 #define USER_LEN 20
@@ -21,11 +21,13 @@
 #define QUIT_CMD "/quit"
 #define QUIT_MSG "__QUIT__"
 
+//Client tracking arrays
 int client_fds[MAXCLIENTS];
 char client_names[MAXCLIENTS][USER_LEN];
 char client_ips[MAXCLIENTS][INET_ADDRSTRLEN];
 int client_count = 0;
 
+// Fucntion that prints error message and exits
 void error(const char *msg)
 {
     perror(msg);
@@ -46,29 +48,32 @@ int main(void)
     listener = socket(AF_INET, SOCK_STREAM, 0);
     if(listener < 0) error("socket");
 
+    // Allow socket reuse
     int yes = 1;
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
 
+    // Configure server address
     memset(&srv_addr, 0, sizeof srv_addr);
     srv_addr.sin_family = AF_INET; 
     srv_addr.sin_addr.s_addr = INADDR_ANY;
     srv_addr.sin_port = htons(PORT);
 
+    // bind socket
     if (bind(listener, (struct sockaddr*)&srv_addr, sizeof srv_addr) < 0)
         error("bind");
 
     if (listen(listener, 10) < 0)
         error("listen");
 
+    // File descriptor sets
     FD_ZERO(&master);
     FD_ZERO(&read_fds);
-
     FD_SET(listener, &master);
     fdmax = listener;
 
     printf("Chat server listening on port %d\n", PORT);
 
-
+    // Main server loop
     while (1) {
         read_fds = master;
         if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) < 0)
@@ -109,6 +114,8 @@ int main(void)
                     client_names[client_count]);
 
                 client_count++;
+
+                // Notify client once both connect
                 if (client_count == 2) {
                     char msg[256];
 
@@ -132,6 +139,7 @@ int main(void)
                 int n = recv(i, buf, sizeof buf, 0);
                 buf[n] = '\0';
 
+                // quit command
                 if (strncmp(buf, QUIT_CMD, 4) == 0) {
                     printf("Connection terminated\n");
 

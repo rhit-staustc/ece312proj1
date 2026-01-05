@@ -1,3 +1,7 @@
+/* TCP chat client for a 2 user chat. The client connects to the server,
+   sends a username, and uses select() to process user inputs and server 
+   messages simultaneously. A quit command allows a user to cleanly shutdown.
+*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -9,20 +13,24 @@
 #include <unistd.h>
 #include <stdbool.h> // booleans
 
+// Protocol messages
 #define QUIT_CMD "/quit"
 #define QUIT_MSG "__QUIT__"
 
+// Message formatting constants
 const int MSG_LEN = 256;
 const int USER_LEN = 20;
 const int FORMAT_CHARS_LEN = 3; // len of <> and ' '
 const int PREFIX_LEN = USER_LEN + FORMAT_CHARS_LEN;
 
+// print error and exit 
 void error(char *msg)
 {
     perror(msg);
     exit(0);
 }
 
+// display user prompt
 void print_prompt(const char *username) {
     printf("<%s> ", username);
     fflush(stdout);
@@ -51,7 +59,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in srv_addr;
     memset(&srv_addr, 0, sizeof(srv_addr));
     srv_addr.sin_family = AF_INET;
-    // TODO: take ip as input from user (or hardcode)
+    // takes ip as input from user
     srv_addr.sin_addr.s_addr = inet_addr(argv[1]); 
     portno = atoi(argv[2]);
     srv_addr.sin_port = htons(portno);
@@ -63,7 +71,6 @@ int main(int argc, char *argv[])
     username[strcspn(username, "\n")] = 0;
 
     // connect to server
-    // fprintf(stderr, "About to connect to %s:%s\n", argv[1], argv[2]);
     if (connect(sockfd,(struct sockaddr *)&srv_addr,sizeof(srv_addr)) < 0) 
         error("ERROR connecting");
     // send username to server immediately
@@ -72,9 +79,10 @@ int main(int argc, char *argv[])
     printf("Waiting for connection . . .\n");
 
     fd_set read_fds;
-    // print_prompt(username);
     char buf[512];
     int ser_msg_count = 0;
+
+    // Main client loop
     while (1) {
         FD_ZERO(&read_fds);
         FD_SET(STDIN_FILENO, &read_fds);
@@ -97,6 +105,7 @@ int main(int argc, char *argv[])
                 continue;
             }
 
+            // Send to socket
             char out[512];
             snprintf(out, sizeof out, "<%s> %s", username, msg);
             write(sockfd, out, strlen(out));
@@ -106,6 +115,7 @@ int main(int argc, char *argv[])
         // server sent something
         if (FD_ISSET(sockfd, &read_fds)) {
             int n = recv(sockfd, buf, sizeof buf - 1, 0);
+            // quit handling
             if (n <= 0) {
                 printf("Server closed connection\n");
                 break;
@@ -115,6 +125,7 @@ int main(int argc, char *argv[])
                 close(sockfd);
                 exit(0);
             }
+            // print message
             buf[n] = '\0';
             printf("\n%s", buf);
             print_prompt(username);
